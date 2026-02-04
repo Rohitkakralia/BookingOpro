@@ -6,6 +6,45 @@ import WhyChooseBookingOpro from "../components/WhyChooseBookingOpro";
 
 const page = () => {
   const [tab, setTab] = useState("cars");
+  const [formData, setFormData] = useState({
+    pickupLocation: "",
+    pickupDate: "",
+    pickupTime: "",
+    dropoffDate: "",
+    dropoffTime: "",
+    carType: "Economy",
+  });
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch("/api/cars/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Car search results:", data);
+        // Handle successful response (redirect, show results, etc.)
+      } else {
+        console.error("Search failed:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error submitting car search:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-zinc-50 font-sans">
@@ -47,11 +86,11 @@ const page = () => {
               Cars
             </button>
           </div> */}
-{/* 
+          {/* 
           CONTENT */}
 
           {/* CONTENT */}
-          <div className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {tab === "cars" && (
               <div className="grid grid-cols-1 gap-6">
                 {/* INPUT ROW */}
@@ -64,6 +103,11 @@ const page = () => {
                     <input
                       className="w-full px-4 py-3 border rounded-lg"
                       placeholder="Pick-up location"
+                      value={formData.pickupLocation}
+                      onChange={(e) =>
+                        handleInputChange("pickupLocation", e.target.value)
+                      }
+                      required
                     />
                   </div>
 
@@ -75,6 +119,11 @@ const page = () => {
                     <input
                       type="date"
                       className="w-full px-4 py-3 border rounded-lg"
+                      value={formData.pickupDate}
+                      onChange={(e) =>
+                        handleInputChange("pickupDate", e.target.value)
+                      }
+                      required
                     />
                   </div>
 
@@ -86,6 +135,11 @@ const page = () => {
                     <input
                       type="time"
                       className="w-full px-4 py-3 border rounded-lg"
+                      value={formData.pickupTime}
+                      onChange={(e) =>
+                        handleInputChange("pickupTime", e.target.value)
+                      }
+                      required
                     />
                   </div>
 
@@ -97,6 +151,11 @@ const page = () => {
                     <input
                       type="date"
                       className="w-full px-4 py-3 border rounded-lg"
+                      value={formData.dropoffDate}
+                      onChange={(e) =>
+                        handleInputChange("dropoffDate", e.target.value)
+                      }
+                      required
                     />
                   </div>
 
@@ -108,6 +167,11 @@ const page = () => {
                     <input
                       type="time"
                       className="w-full px-4 py-3 border rounded-lg"
+                      value={formData.dropoffTime}
+                      onChange={(e) =>
+                        handleInputChange("dropoffTime", e.target.value)
+                      }
+                      required
                     />
                   </div>
 
@@ -116,27 +180,43 @@ const page = () => {
                     <label className="text-xs font-semibold text-teal-900">
                       Car Type
                     </label>
-                    <select className="w-full px-4 py-3 border rounded-lg">
+                    <select
+                      className="w-full px-4 py-3 border rounded-lg"
+                      value={formData.carType}
+                      onChange={(e) =>
+                        handleInputChange("carType", e.target.value)
+                      }
+                    >
                       <option>Economy</option>
+                      <option>Compact</option>
+                      <option>Mid-size</option>
+                      <option>Full-size</option>
                       <option>SUV</option>
                       <option>Luxury</option>
+                      <option>Convertible</option>
                     </select>
                   </div>
                 </div>
 
                 {/* SEARCH BUTTON ROW */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                  <button className="bg-linear-to-l from-[#db6c53] to-[#e93d18] text-white font-bold px-10 py-3 rounded-lg hover:bg-[#d92d08] transition whitespace-nowrap">
+                  <button
+                    type="submit"
+                    className="bg-linear-to-l from-[#db6c53] to-[#e93d18] text-white font-bold px-10 py-3 rounded-lg hover:bg-[#d92d08] transition whitespace-nowrap"
+                  >
                     🔍 Search
                   </button>
 
-                  <button className="py-3 px-6 border border-red-400 text-red-500 font-semibold rounded-lg hover:bg-red-50 transition whitespace-nowrap">
+                  <button
+                    type="button"
+                    className="py-3 px-6 border border-red-400 text-red-500 font-semibold rounded-lg hover:bg-red-50 transition whitespace-nowrap"
+                  >
                     📞 CALL FOR UNPUBLISHED PHONE DEALS
                   </button>
                 </div>
               </div>
             )}
-          </div>
+          </form>
         </div>
       </div>
 

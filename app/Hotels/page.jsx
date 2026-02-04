@@ -10,6 +10,44 @@ import Feature from "../components/Feature";
 
 const Hotels = () => {
   const [tab, setTab] = useState("hotels");
+  const [formData, setFormData] = useState({
+    destination: "",
+    checkin: "",
+    checkout: "",
+    guestsRooms: "2 Adults, 1 Room",
+  });
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log(formData);
+
+    try {
+      const response = await fetch("/api/hotels/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Hotel search results:", data);
+        // Handle successful response (redirect, show results, etc.)
+      } else {
+        console.error("Search failed:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error submitting hotel search:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-zinc-50 font-sans">
@@ -54,7 +92,7 @@ const Hotels = () => {
           </div>
 
           {/* CONTENT */}
-          <div className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* HOTELS */}
             {tab === "hotels" && (
               <div className="grid md:grid-cols-5 gap-4 items-end">
@@ -65,6 +103,11 @@ const Hotels = () => {
                   <input
                     className="mt-1 w-full px-4 py-3 border rounded-lg"
                     placeholder="Where are you going?"
+                    value={formData.destination}
+                    onChange={(e) =>
+                      handleInputChange("destination", e.target.value)
+                    }
+                    required
                   />
                 </div>
 
@@ -75,6 +118,11 @@ const Hotels = () => {
                   <input
                     type="date"
                     className="mt-1 w-full px-4 py-3 border rounded-lg"
+                    value={formData.checkin}
+                    onChange={(e) =>
+                      handleInputChange("checkin", e.target.value)
+                    }
+                    required
                   />
                 </div>
 
@@ -85,6 +133,11 @@ const Hotels = () => {
                   <input
                     type="date"
                     className="mt-1 w-full px-4 py-3 border rounded-lg"
+                    value={formData.checkout}
+                    onChange={(e) =>
+                      handleInputChange("checkout", e.target.value)
+                    }
+                    required
                   />
                 </div>
 
@@ -92,28 +145,43 @@ const Hotels = () => {
                   <label className="text-xs font-semibold text-teal-900">
                     Guests & Rooms
                   </label>
-                  <select className="mt-1 w-full px-4 py-3 border rounded-lg">
+                  <select
+                    className="mt-1 w-full px-4 py-3 border rounded-lg"
+                    value={formData.guestsRooms}
+                    onChange={(e) =>
+                      handleInputChange("guestsRooms", e.target.value)
+                    }
+                  >
+                    <option>1 Adult, 1 Room</option>
                     <option>2 Adults, 1 Room</option>
+                    <option>2 Adults, 1 Child, 1 Room</option>
+                    <option>2 Adults, 2 Children, 1 Room</option>
+                    <option>3 Adults, 1 Room</option>
+                    <option>4 Adults, 1 Room</option>
+                    <option>2 Adults, 2 Rooms</option>
+                    <option>4 Adults, 2 Rooms</option>
                   </select>
                 </div>
 
-                <button className="bg-linear-to-l from-[#db6c53] to-[#e93d18] hover:bg-[#d92d08] text-black font-bold px-6 py-3 rounded-lg">
+                <button
+                  type="submit"
+                  className="cursor-pointer bg-linear-to-l from-[#db6c53] to-[#e93d18] hover:bg-[#d92d08] text-black font-bold px-6 py-3 rounded-lg"
+                >
                   🔍 Search
                 </button>
               </div>
             )}
-          </div>
-      </div>
+          </form>
         </div>
+      </div>
 
-          <Feature />
+      <Feature />
 
-          <TopDeals />
-          <MostSearchedDestinations />
-          <FeaturedHotels />
-          <WhyChooseBookingOpro />
-          <Testimonials />
-      
+      <TopDeals />
+      <MostSearchedDestinations />
+      <FeaturedHotels />
+      <WhyChooseBookingOpro />
+      <Testimonials />
     </div>
   );
 };

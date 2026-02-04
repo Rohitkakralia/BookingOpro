@@ -1,8 +1,49 @@
 "use client";
 import { useState } from "react";
+import FlightPageComponent from "../components/FlightPageComponent";
 
 export default function Page() {
   const [tab, setTab] = useState("flights");
+  const [formData, setFormData] = useState({
+    tripType: "Round Trip",
+    from: "",
+    to: "",
+    departure: "",
+    return: "",
+    travelers: "1 Traveler, Economy",
+  });
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault(); 
+    console.log(formData);
+
+    try {
+      const response = await fetch("/api/flights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Flight search results:", data);
+        // Handle successful response (redirect, show results, etc.)
+      } else {
+        console.error("Search failed:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error submitting flight search:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-zinc-50 font-sans">
@@ -46,16 +87,18 @@ export default function Page() {
           </div>
 
           {/* CONTENT */}
-          <div className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {tab === "flights" && (
               <>
                 <div className="flex gap-3">
                   {["Round Trip", "One Way", "Multi-City"].map((type, i) => (
                     <button
                       key={i}
+                      type="button"
+                      onClick={() => handleInputChange("tripType", type)}
                       className={`px-4 py-2 rounded-full border text-sm font-semibold
                         ${
-                          i === 0
+                          formData.tripType === type
                             ? "bg-[#e93d18] border-[#e93d18] text-white"
                             : "text-gray-600"
                         }`}
@@ -76,6 +119,11 @@ export default function Page() {
                       <input
                         className="w-full px-4 py-3 border rounded-lg"
                         placeholder="From"
+                        value={formData.from}
+                        onChange={(e) =>
+                          handleInputChange("from", e.target.value)
+                        }
+                        required
                       />
                     </div>
 
@@ -87,6 +135,11 @@ export default function Page() {
                       <input
                         className="w-full px-4 py-3 border rounded-lg"
                         placeholder="To"
+                        value={formData.to}
+                        onChange={(e) =>
+                          handleInputChange("to", e.target.value)
+                        }
+                        required
                       />
                     </div>
 
@@ -98,6 +151,11 @@ export default function Page() {
                       <input
                         type="date"
                         className="w-full px-4 py-3 border rounded-lg"
+                        value={formData.departure}
+                        onChange={(e) =>
+                          handleInputChange("departure", e.target.value)
+                        }
+                        required
                       />
                     </div>
 
@@ -109,6 +167,11 @@ export default function Page() {
                       <input
                         type="date"
                         className="w-full px-4 py-3 border rounded-lg"
+                        value={formData.return}
+                        onChange={(e) =>
+                          handleInputChange("return", e.target.value)
+                        }
+                        disabled={formData.tripType === "One Way"}
                       />
                     </div>
 
@@ -117,28 +180,49 @@ export default function Page() {
                       <label className="text-xs font-semibold text-teal-900">
                         Travelers
                       </label>
-                      <select className="w-full px-4 py-3 border rounded-lg">
+                      <select
+                        className="w-full px-4 py-3 border rounded-lg"
+                        value={formData.travelers}
+                        onChange={(e) =>
+                          handleInputChange("travelers", e.target.value)
+                        }
+                      >
                         <option>1 Traveler, Economy</option>
+                        <option>2 Travelers, Economy</option>
+                        <option>3 Travelers, Economy</option>
+                        <option>4 Travelers, Economy</option>
+                        <option>1 Traveler, Business</option>
+                        <option>2 Travelers, Business</option>
                       </select>
                     </div>
                   </div>
 
                   {/* SEARCH BUTTON ROW */}
                   <div className="flex items-center gap-4">
-                    <button className="bg-linear-to-l from-[#db6c53] to-[#e93d18] text-white font-bold px-10 py-3 rounded-lg hover:bg-[#d92d08] transition whitespace-nowrap">
+                    <button
+                      type="submit"
+                      className="bg-linear-to-l from-[#db6c53] to-[#e93d18] text-white font-bold px-10 py-3 rounded-lg hover:bg-[#d92d08] transition whitespace-nowrap"
+                    >
                       🔍 Search
                     </button>
 
-                    <button className="py-3 px-6 border border-red-400 text-red-500 font-semibold rounded-lg hover:bg-red-50 transition whitespace-nowrap">
+                    <button
+                      type="button"
+                      className="py-3 px-6 border border-red-400 text-red-500 font-semibold rounded-lg hover:bg-red-50 transition whitespace-nowrap"
+                    >
                       📞 CALL FOR UNPUBLISHED PHONE DEALS
                     </button>
                   </div>
                 </div>
               </>
             )}
-          </div>
+          </form>
         </div>
       </div>
+
+      {/* ------------------------------------------ */}
+
+      <FlightPageComponent/>
     </div>
   );
 }
