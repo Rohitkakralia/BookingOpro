@@ -287,18 +287,19 @@ export default function HotelResultCard({ hotelData, onViewInfo }) {
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [imgError, setImgError] = useState(false);
 
+  const hotelName = hotelData?.id
+    ? hotelData.id.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+    : "Luxury Hotel";
+
+  // Always call the hook, regardless of conditions
+  const { imageUrl, loading: imageLoading } = useHotelImage(hotelName);
+
   if (!hotelData) return null;
 
   const { id, rates = [] } = hotelData;
   const bestRate = getBestRate(rates);
   const bestPrice = parseFloat(bestRate?.daily_prices?.[0] || 0).toFixed(0);
   const totalPrice = bestRate?.payment_options?.payment_types?.[0]?.show_amount;
-
-  const hotelName = id
-    ? id.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
-    : "Luxury Hotel";
-
-  const { imageUrl, loading: imageLoading } = useHotelImage(hotelName);
 
   const hasFreeCancellation = rates.some(
     (r) => r.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before

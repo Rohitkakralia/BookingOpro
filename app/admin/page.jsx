@@ -8,7 +8,7 @@ const TABS = {
   CAR: "car",
 };
 
-const page = () => {
+const AdminPage = () => {
   const [activeTab, setActiveTab] = useState(TABS.FLIGHT);
   const [flights, setFlights] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -175,4 +175,4 @@ const Placeholder = ({ text }) => (
   </div>
 );
 
-export default page;
+export default AdminPage;

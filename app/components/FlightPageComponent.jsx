@@ -89,7 +89,7 @@ const FlightPageComponent = () => {
           {/* 4️⃣ Info Box */}
           <div className="h-[300px] bg-white rounded-2xl border border-yellow-400 p-6 shadow-sm flex items-center hover:shadow-lg hover:border-amber-500 transition-all duration-300">
             <p className="text-sm text-gray-600">
-              Whether you're booking in advance or looking for a last-minute
+              Whether you&apos;re booking in advance or looking for a last-minute
               deal, BookingOPro helps you travel the way that works best for
               you.
             </p>

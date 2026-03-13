@@ -7,7 +7,7 @@ export default function BookingGuide() {
       
       <div className="space-y-6">
         <div>
-          <h4 className="font-semibold text-green-600 mb-2">✅ What's Working:</h4>
+          <h4 className="font-semibold text-green-600 mb-2">✅ What&apos;s Working:</h4>
           <ul className="list-disc list-inside space-y-1 text-sm">
             <li>Hotel search with RateHawk API integration</li>
             <li>Destination autocomplete with fallback data</li>
@@ -25,7 +25,7 @@ export default function BookingGuide() {
           <ol className="list-decimal list-inside space-y-2 text-sm">
             <li><strong>Search Hotels:</strong> Use the main search form with destination, dates, and guest count</li>
             <li><strong>Browse Results:</strong> View hotel cards with room options and pricing</li>
-            <li><strong>Book a Room:</strong> Click "Book Now" on any room rate</li>
+            <li><strong>Book a Room:</strong> Click &quot;Book Now&quot; on any room rate</li>
             <li><strong>Complete Booking:</strong> Follow the 4-step booking process:
               <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
                 <li>Review booking details</li>
@@ -52,8 +52,8 @@ export default function BookingGuide() {
         <div>
           <h4 className="font-semibold text-purple-600 mb-2">🧪 Testing:</h4>
           <ul className="list-disc list-inside space-y-1 text-sm">
-            <li>Use the "Run Test" button above to test hotel search</li>
-            <li>Try searching for destinations like "Paris", "London", "New York"</li>
+            <li>Use the &quot;Run Test&quot; button above to test hotel search</li>
+            <li>Try searching for destinations like &quot;Paris&quot;, &quot;London&quot;, &quot;New York&quot;</li>
             <li>Test the booking flow with any hotel result</li>
             <li>Check booking status with the status checker</li>
           </ul>

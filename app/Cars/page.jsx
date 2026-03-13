@@ -4,7 +4,7 @@ import { useState } from "react";
 import CarRentalTips from "../components/CarRentalTips";
 import WhyChooseBookingOpro from "../components/WhyChooseBookingOpro";
 
-const page = () => {
+const CarsPage = () => {
   const [tab, setTab] = useState("cars");
   const [formData, setFormData] = useState({
     pickupLocation: "",
@@ -226,4 +226,4 @@ const page = () => {
   );
 };
 
-export default page;
+export default CarsPage;

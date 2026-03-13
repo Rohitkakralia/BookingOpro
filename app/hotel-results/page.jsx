@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBookingAPI } from "../hooks/useBookingAPI";
 import HotelResultCard from "../components/HotelResultCard";
 import HotelInfoModal from "../components/HotelInfoModal";
 
-export default function HotelResultsPage() {
+function HotelResultsContent() {
   const searchParams = useSearchParams();
   const { loading, error, searchHotels, getHotelInfo } = useBookingAPI();
   
@@ -29,9 +29,9 @@ export default function HotelResultsPage() {
     if (destination && checkin && checkout) {
       performSearch();
     }
-  }, [destination, checkin, checkout, adults, children, currency, language]);
+  }, [destination, checkin, checkout, performSearch]);
 
-  const performSearch = async () => {
+  const performSearch = useCallback(async () => {
     const searchData = {
       destination,
       checkin,
@@ -63,7 +63,7 @@ export default function HotelResultsPage() {
         stack: err.stack
       });
     }
-  };
+  }, [destination, checkin, checkout, adults, children, currency, language, searchHotels]);
 
   const handleViewHotelInfo = async (hotelId) => {
     if (!hotelId) {
@@ -191,5 +191,13 @@ export default function HotelResultsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function HotelResultsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading...</div>}>
+      <HotelResultsContent />
+    </Suspense>
   );
 }

@@ -96,7 +96,7 @@ function Footer() {
         </div>
 
         <p className="text-xs text-gray-300 mx-auto px-4">
-          Savings are calculated from an unrestricted "Y" class published airfare
+          Savings are calculated from an unrestricted &quot;Y&quot; class published airfare
           of major scheduled airlines commonly known as refundable tickets.
           © 2026 BookingOpro.com. All rights reserved.
         </p>
