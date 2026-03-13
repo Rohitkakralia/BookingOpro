@@ -78,6 +78,7 @@ const Navbar = () => {
             >
               Contact Us
             </Link>
+            
           </div>
 
           <div className="hidden md:flex items-center bg-linear-to-l from-[#db6c53] to-[#e93d18]  text-white h-10 px-4 rounded-md space-x-2">
@@ -186,6 +187,16 @@ const Navbar = () => {
               }`}
             >
               Contact Us
+            </Link>
+            <Link
+              href="/test-booking"
+              className={`block px-3 py-2 rounded-md transition ${
+                isActive("/test-booking")
+                  ? "text-[#e93d18] bg-cyan-50 border-l-4 border-[#e93d18]"
+                  : "text-gray-700 hover:text-cyan-600 hover:bg-cyan-50"
+              }`}
+            >
+              🧪 Test Booking
             </Link>
             <div className="pt-4 border-t border-gray-200 space-y-2">
               <Link
