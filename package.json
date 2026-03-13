@@ -11,7 +11,7 @@
   "dependencies": {
     "lucide-react": "^0.563.0",
     "mysql2": "^3.16.2",
-    "next": "16.1.6",
+    "next": "15.2.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "^7.13.0"
