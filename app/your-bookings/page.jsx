@@ -457,9 +457,7 @@ function BookingCard({ order, animDelay, onCancel }) {
 
         {isCancellable && (
           <button
-            onClick={() =>
-              onCancel(order.order_id, getFullName(guest))
-            }
+            onClick={() => onCancel(order.order_id, getFullName(guest), order.partner_data?.order_id)}
             style={styles.btnCancelOutline}
             onMouseEnter={(e) =>
               (e.currentTarget.style.background = "rgba(200,60,60,0.06)")
@@ -639,9 +637,9 @@ export default function Page() {
   // ── Cancel
   const handleCancel = async () => {
     try {
-      const res = await fetch(`/api/booking/cancel/${modal.orderId}`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/hotels/booking/cancel/${modal.partnerOrderId}`, {
+  method: "POST",
+});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setBookings((prev) =>
         prev.map((b) =>
@@ -846,7 +844,7 @@ export default function Page() {
             key={order.order_id}
             order={order}
             animDelay={i * 60}
-            onCancel={(id, name) => setModal({ orderId: id, guestName: name })}
+            onCancel={(id, name, partnerOrderId) => setModal({ orderId: id, guestName: name, partnerOrderId })}
           />
         ))}
 

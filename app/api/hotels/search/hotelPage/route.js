@@ -52,7 +52,7 @@ export async function POST(request) {
       currency,
       guests,
       hid: 8473727, // Use known working HID for testing
-      //hid: parseInt(hid), // Use actual HID from frontend
+      // hid: parseInt(hid), // Use actual HID from frontend
     };
 
     // ─── Step 1: HP — Get hotel details and book_hash per rate ────────────────
