@@ -1,176 +1,179 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-const API_BASE_URL = process.env.API_BASE_URL || "https://api.worldota.net";
-const API_KEY = process.env.API_KEY;
-const KEY_ID = process.env.KEY_ID;
+const WORLDOTA_BASE_URL = process.env.API_BASE_URL || "https://api-sandbox.worldota.net";
+const WORLDOTA_KEY_ID   = process.env.KEY_ID;
+const WORLDOTA_API_KEY  = process.env.API_KEY;
 
-/**
- * ETG API: Start Booking Process
- * POST /api/b2b/v3/hotel/order/booking/finish/
- *
- * Request body (ETG format):
- * {
- *   partner: { partner_order_id: "uuid" },
- *   language: "en",
- *   rooms: [{ guests: [{ first_name, last_name }] }],
- *   user: { email, phone },
- *   payment_type: { type: "deposit", amount: "0", currency_code: "USD" }
- * }
- *
- * This endpoint is asynchronous — poll /booking/finish/status to get the final result.
- * Docs: https://docs.emergingtravel.com/docs/b2b-api/booking/start-booking-process/
- */
+const ERROR_MESSAGES = {
+  validation_error:     "One or more required fields are missing or invalid.",
+  invalid_pay_uuid:     "The payment UUID is invalid.",
+  invalid_init_uuid:    "The initialization UUID is invalid.",
+  invalid_order:        "The order was not found or has expired.",
+  order_already_booked: "This order has already been booked.",
+  payment_failed:       "Payment processing failed. Please check your card details.",
+  sandbox_restriction:  "This booking is not available in sandbox mode.",
+  not_found:            "Booking order not found. Please start the booking again.",
+  null_data:            "No data returned. The booking session may have expired.",
+};
+
 export async function POST(request) {
   try {
     const body = await request.json();
+
     const {
-      order_id,           // ETG-assigned order_id from booking/form response
-      partner_order_id,   // Your UUID (same one used in booking/form)
-      first_name,
-      last_name,
-      email,
-      phone = '',
-      country = '',
-      language = 'en',
-      payment_amount = '0',
-      payment_currency = 'USD',
+      partner_order_id,
+      language = "en",
+      return_path,
+      partner,
+      payment_type,
+      rooms,
+      user,
+      supplier_data,
+      upsell_data,
+      arrival_datetime,
     } = body;
 
-    console.log("Booking finish request received:", { order_id, partner_order_id, email });
-
-    if (!order_id) {
-      return NextResponse.json({
-        success: false,
-        message: 'order_id is required (ETG order_id from booking/form response)',
-      }, { status: 400 });
-    }
-
+    // ── Validate ───────────────────────────────────────────────────────────
     if (!partner_order_id) {
-      return NextResponse.json({
-        success: false,
-        message: 'partner_order_id is required',
-      }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "partner_order_id is required" },
+        { status: 400 }
+      );
     }
 
-    if (!first_name || !last_name || !email) {
-      return NextResponse.json({
-        success: false,
-        message: 'first_name, last_name, and email are required for the guest',
-      }, { status: 400 });
+    if (!payment_type?.type || !payment_type?.amount || !payment_type?.currency_code) {
+      return NextResponse.json(
+        { success: false, message: "payment_type with type, amount, currency_code is required" },
+        { status: 400 }
+      );
     }
 
-    const keyId = KEY_ID;
-    const apiKey = API_KEY;
-    const baseUrl = API_BASE_URL;
-
-    if (!keyId || !apiKey || !baseUrl) {
-      console.error("Missing environment variables");
-      return NextResponse.json({
-        success: false,
-        message: 'Server configuration error: missing API credentials',
-      }, { status: 500 });
+    if (!rooms?.length || !rooms[0]?.guests?.length) {
+      return NextResponse.json(
+        { success: false, message: "rooms with at least one guest is required" },
+        { status: 400 }
+      );
     }
 
-    const authString = Buffer.from(`${keyId}:${apiKey}`).toString("base64");
-    const apiUrl = `${baseUrl}/api/b2b/v3/hotel/order/booking/finish`;
+    const firstGuest = rooms[0].guests[0];
+    if (!firstGuest?.first_name || !firstGuest?.last_name) {
+      return NextResponse.json(
+        { success: false, message: "Guest first_name and last_name are required" },
+        { status: 400 }
+      );
+    }
 
-    // Build the ETG-compliant payload per API docs
-    const etgPayload = {
+    if (!user?.email || !user?.phone) {
+      return NextResponse.json(
+        { success: false, message: "user.email and user.phone are required" },
+        { status: 400 }
+      );
+    }
+
+    if (!WORLDOTA_KEY_ID || !WORLDOTA_API_KEY) {
+      console.error("Missing env vars: KEY_ID or API_KEY");
+      return NextResponse.json(
+        { success: false, message: "Server configuration error: missing API credentials" },
+        { status: 500 }
+      );
+    }
+
+    // ── Build WorldOTA payload ─────────────────────────────────────────────
+    const payload = {
+      language,
+      partner_order_id,
       partner: {
         partner_order_id,
+        comment:           partner?.comment           || "",
+        amount_sell_b2b2c: partner?.amount_sell_b2b2c || "0",
       },
-      language,
-      // Guest details must be in rooms[].guests[] array format
-      rooms: [
-        {
-          guests: [
-            {
-              first_name,
-              last_name,
-            },
-          ],
-        },
-      ],
-      // User (the person making the booking, may differ from guest)
-      user: {
-        email,
-        phone: phone || '',
-      },
-      // Payment type: "deposit" means ETG deducts from your B2B deposit balance
       payment_type: {
-        type: 'deposit',
-        amount: payment_amount,
-        currency_code: payment_currency,
+        type:          payment_type.type,
+        amount:        String(payment_type.amount),
+        currency_code: payment_type.currency_code,
+        ...(payment_type.pay_uuid  && { pay_uuid:  payment_type.pay_uuid }),
+        ...(payment_type.init_uuid && { init_uuid: payment_type.init_uuid }),
+      },
+      rooms,
+      user: {
+        email:   user.email,
+        phone:   user.phone,
+        comment: user.comment || "",
       },
     };
 
-    console.log("Calling ETG booking/finish:", apiUrl);
-    console.log("ETG payload:", JSON.stringify(etgPayload, null, 2));
+    if (supplier_data)       payload.supplier_data    = supplier_data;
+    if (upsell_data?.length) payload.upsell_data      = upsell_data;
+    if (arrival_datetime)    payload.arrival_datetime = arrival_datetime;
+    if (return_path)         payload.return_path      = return_path;
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${authString}`,
-      },
-      body: JSON.stringify(etgPayload),
-    });
+    console.log("→ WorldOTA finish payload:", JSON.stringify(payload, null, 2));
 
-    console.log("ETG booking/finish response status:", response.status);
+    // ── Call WorldOTA ──────────────────────────────────────────────────────
+    const authString = Buffer.from(`${WORLDOTA_KEY_ID}:${WORLDOTA_API_KEY}`).toString("base64");
 
-    const responseText = await response.text();
+    const res = await fetch(
+      `${WORLDOTA_BASE_URL}/api/b2b/v3/hotel/order/booking/finish/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${authString}`,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
 
-    if (!response.ok) {
-      console.error("ETG API Error:", {
-        status: response.status,
-        body: responseText.substring(0, 500),
-      });
-      return NextResponse.json({
-        success: false,
-        error: `ETG API Error: ${response.status}`,
-        message: responseText.substring(0, 200) || 'Failed to start booking process',
-      }, { status: response.status >= 500 ? 502 : response.status });
+    const resText = await res.text();
+    console.log("← WorldOTA status:", res.status);
+    console.log("← WorldOTA response:", resText.substring(0, 500));
+
+    if (!res.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Booking finish failed (${res.status}): ${resText.substring(0, 150)}`,
+        },
+        { status: res.status >= 500 ? 502 : res.status }
+      );
     }
 
-    let etgData;
+    let resData;
     try {
-      etgData = JSON.parse(responseText);
-    } catch (parseErr) {
-      console.error("Failed to parse ETG response:", parseErr);
-      return NextResponse.json({
-        success: false,
-        message: 'Invalid response from ETG API',
-      }, { status: 502 });
+      resData = JSON.parse(resText);
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "Invalid JSON response from WorldOTA" },
+        { status: 502 }
+      );
     }
 
-    // ETG returns { status: "ok" } — booking is "in progress", not complete yet
-    // Poll /booking/finish/status to get the final result
-    if (etgData.status !== 'ok') {
-      const errCode = etgData.error || etgData.message || 'unknown';
-      console.error("ETG booking/finish non-ok status:", etgData);
-      return NextResponse.json({
-        success: false,
-        error: errCode,
-        message: `ETG booking finish error: ${errCode}`,
-        raw: etgData,
-      }, { status: 422 });
+    if (resData.status !== "ok") {
+      const errCode = resData.error || resData.status || "unknown";
+      console.error("WorldOTA finish non-ok:", resData);
+      return NextResponse.json(
+        {
+          success: false,
+          error:   errCode,
+          message: ERROR_MESSAGES[errCode] ?? `Booking failed (${errCode}). Please try again.`,
+        },
+        { status: 422 }
+      );
     }
 
-    console.log("ETG booking/finish accepted. Booking is now in progress. Poll status endpoint.");
+    console.log("✅ Booking finished:", resData.data);
 
     return NextResponse.json({
       success: true,
-      data: etgData,
-      order_id,
-      message: 'Booking process started. Poll /api/hotels/booking/status for final result.',
+      data:    resData.data,
+      message: "Booking completed successfully",
     });
 
   } catch (error) {
-    console.error('Booking finish route error:', error.message);
-    return NextResponse.json({
-      success: false,
-      error: error.message || 'Unknown error',
-      message: 'Failed to process booking finish request',
-    }, { status: 500 });
+    console.error("bookingFinish route error:", error.message);
+    return NextResponse.json(
+      { success: false, message: "Failed to complete booking", error: error.message },
+      { status: 500 }
+    );
   }
 }

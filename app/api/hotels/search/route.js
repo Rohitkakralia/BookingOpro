@@ -2,12 +2,9 @@ import { NextResponse } from "next/server";
 
 export async function POST(request) {
   try {
-    console.log("Hotel search API called");
-
     const searchData = await request.json();
-    console.log("Request data:", searchData);
 
-    // Validate required fields
+    // ── Validate required fields ──────────────────────────────────────────────
     if (
       !searchData.destination ||
       !searchData.checkin ||
@@ -29,52 +26,77 @@ export async function POST(request) {
 
     if (!keyId || !apiKey || !baseUrl) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Missing environment variables",
-        },
+        { success: false, error: "Missing environment variables" },
         { status: 500 }
       );
     }
 
     const authString = Buffer.from(`${keyId}:${apiKey}`).toString("base64");
+    const authHeaders = {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${authString}`,
+    };
 
-    // Step 1: Get location IDs
-    console.log("Step 1: Getting location IDs for", searchData.destination);
-    const multicompleteResponse = await fetch(
-      `${baseUrl}/api/b2b/v3/search/multicomplete`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${authString}`,
+    // ── Validate dates ────────────────────────────────────────────────────────
+    const checkinDate = new Date(searchData.checkin);
+    const checkoutDate = new Date(searchData.checkout);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (checkinDate < today) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid dates",
+          message: "Check-in date cannot be in the past",
         },
-        body: JSON.stringify({
-          query: searchData.destination,
-          language: "en",
-        }),
-      }
-    );
-
-    console.log("Multicomplete response status:", multicompleteResponse.status);
-
-    if (!multicompleteResponse.ok) {
-      const errorText = await multicompleteResponse.text();
-      console.error("Multicomplete error:", errorText);
-      throw new Error(`Location search failed: ${errorText.substring(0, 100)}`);
-    }
-
-    const multicompleteResult = await multicompleteResponse.json();
-
-    // Extract region IDs
-    let regionIds = [];
-    if (multicompleteResult.data && multicompleteResult.data.regions) {
-      regionIds = multicompleteResult.data.regions.map((region) =>
-        region.id.toString()
+        { status: 400 }
       );
     }
 
-    if (regionIds.length === 0) {
+    if (checkoutDate <= checkinDate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid dates",
+          message: "Check-out date must be after check-in date",
+        },
+        { status: 400 }
+      );
+    }
+
+    const guests = [{ adults: parseInt(searchData.adults) || 2, children: [] }];
+    const currency = searchData.currency || "USD";
+    const language = searchData.language || "en";
+    const residency = "us";
+
+    const basePayload = {
+      checkin: searchData.checkin,
+      checkout: searchData.checkout,
+      residency,
+      language,
+      currency,
+      guests,
+    };
+
+    // ─── Step 1: Multicomplete ────────────────────────────────────────────────
+    console.log("\n========== STEP 1: MULTICOMPLETE ==========");
+
+    const mcRes = await fetch(`${baseUrl}/api/b2b/v3/search/multicomplete`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ query: searchData.destination, language }),
+    });
+
+    if (!mcRes.ok) {
+      const err = await mcRes.text();
+      throw new Error(`Multicomplete failed: ${err.substring(0, 100)}`);
+    }
+
+    const mcResult = await mcRes.json();
+    const regions = mcResult?.data?.regions ?? [];
+
+    if (regions.length === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -85,180 +107,85 @@ export async function POST(request) {
       );
     }
 
-    console.log("Found region IDs:", regionIds);
+    const regionIds = regions.map((r) => r.id.toString());
+    console.log("Region IDs:", regionIds);
 
-    // Validate and format dates
-    const checkinDate = new Date(searchData.checkin);
-    const checkoutDate = new Date(searchData.checkout);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time for accurate comparison
-    
-    console.log("Date validation:", {
-      checkin: checkinDate.toISOString().split('T')[0],
-      checkout: checkoutDate.toISOString().split('T')[0],
-      today: today.toISOString().split('T')[0]
-    });
+    // ─── Step 2: SERP ─────────────────────────────────────────────────────────
+    console.log("\n========== STEP 2: SERP ==========");
 
-    // Check if dates are valid and in the future
-    if (checkinDate < today) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid dates",
-        message: "Check-in date cannot be in the past"
-      }, { status: 400 });
-    }
-    
-    if (checkoutDate <= checkinDate) {
-      return NextResponse.json({
-        success: false,
-        error: "Invalid dates",
-        message: "Check-out date must be after check-in date"
-      }, { status: 400 });
+    async function searchHotels(ids) {
+      const res = await fetch(`${baseUrl}/api/b2b/v3/search/serp/hotels/`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ ...basePayload, ids }),
+      });
+      if (!res.ok) return null;
+      return await res.json();
     }
 
-    // Step 2: Search hotels with multiple strategies
-    console.log("Step 2: Searching hotels...");
+    // Strategy 1: All region IDs
+    let hotelResult = await searchHotels(regionIds);
+    let hotelsFound = hotelResult?.data?.hotels?.length ?? 0;
 
-    // Strategy 1: Try with all region IDs (broader search)
-    console.log("Strategy 1: Searching with all region IDs:", regionIds);
-    
-    const hotelSearchData = {
-      checkin: searchData.checkin,
-      checkout: searchData.checkout,
-      residency: "us",
-      language: "en",
-      guests: [
-        {
-          adults: parseInt(searchData.adults) || 2,
-          children: [],
-        },
-      ],
-      ids: regionIds, // Use ALL region IDs for broader search
-      currency: searchData.currency || "USD",
-    };
-
-    console.log("Hotel search payload:", JSON.stringify(hotelSearchData, null, 2));
-
-    const hotelResponse = await fetch(`${baseUrl}/api/b2b/v3/search/serp/hotels`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${authString}`,
-      },
-      body: JSON.stringify(hotelSearchData),
-    });
-
-    console.log("Hotel search status:", hotelResponse.status);
-
-    if (!hotelResponse.ok) {
-      const errorText = await hotelResponse.text();
-      console.error("Hotel search error:", errorText);
-      
-      // Try to parse the error for more details
-      try {
-        const errorJson = JSON.parse(errorText);
-        console.error("Parsed error:", errorJson);
-      } catch (e) {
-        console.error("Could not parse error as JSON");
-      }
-      
-      throw new Error("Hotel search failed: " + errorText.substring(0, 200));
-    }
-
-    const hotelResult = await hotelResponse.json();
-    console.log("Hotel search result status:", hotelResult.status);
-
-    let hotelsFound = hotelResult.data && hotelResult.data.hotels ? hotelResult.data.hotels.length : 0;
-    console.log("Hotels found with all regions:", hotelsFound);
-
-    // Strategy 2: If no results, try with just the main city region
+    // Strategy 2: City region only
     if (hotelsFound === 0) {
-      console.log("Strategy 2: Trying with main city region only...");
-      
-      const mainRegionId = regionIds.find((id) => {
-        const region = multicompleteResult.data.regions.find((r) => r.id.toString() === id);
-        return region && region.type === "City";
-      }) || regionIds[0];
+      const cityRegion = regions.find((r) => r.type === "City");
+      const mainId = cityRegion ? cityRegion.id.toString() : regionIds[0];
+      hotelResult = await searchHotels([mainId]);
+      hotelsFound = hotelResult?.data?.hotels?.length ?? 0;
+    }
 
-      console.log("Using main region ID:", mainRegionId);
-
-      const mainRegionSearchData = {
-        ...hotelSearchData,
-        ids: [mainRegionId],
-      };
-
-      const mainRegionResponse = await fetch(`${baseUrl}/api/b2b/v3/search/serp/hotels`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${authString}`,
-        },
-        body: JSON.stringify(mainRegionSearchData),
-      });
-
-      if (mainRegionResponse.ok) {
-        const mainRegionResult = await mainRegionResponse.json();
-        const mainRegionCount = mainRegionResult.data && mainRegionResult.data.hotels ? mainRegionResult.data.hotels.length : 0;
-        console.log("Hotels found with main region:", mainRegionCount);
-
-        if (mainRegionCount > 0) {
-          return NextResponse.json({
-            success: true,
-            data: mainRegionResult,
-            locationData: multicompleteResult.data,
-            message: "Hotels found successfully",
-          });
-        }
+    // Strategy 3: Each region individually
+    if (hotelsFound === 0) {
+      for (const id of regionIds) {
+        hotelResult = await searchHotels([id]);
+        hotelsFound = hotelResult?.data?.hotels?.length ?? 0;
+        if (hotelsFound > 0) break;
       }
     }
 
-    // Strategy 3: If still no results, try with specific hotel IDs as fallback
-    if (hotelsFound === 0 && multicompleteResult.data.hotels && multicompleteResult.data.hotels.length > 0) {
-      console.log("Strategy 3: Trying with specific hotel IDs as fallback...");
-
-      const hotelIds = multicompleteResult.data.hotels.map((hotel) => hotel.id);
-      console.log("Using hotel IDs:", hotelIds);
-
-      const hotelIdSearchData = {
-        ...hotelSearchData,
-        ids: hotelIds,
-      };
-
-      const hotelIdResponse = await fetch(`${baseUrl}/api/b2b/v3/search/serp/hotels`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${authString}`,
-        },
-        body: JSON.stringify(hotelIdSearchData),
-      });
-
-      if (hotelIdResponse.ok) {
-        const hotelIdResult = await hotelIdResponse.json();
-        const hotelIdCount = hotelIdResult.data && hotelIdResult.data.hotels ? hotelIdResult.data.hotels.length : 0;
-        console.log("Hotels found with hotel IDs:", hotelIdCount);
-
-        if (hotelIdCount > 0) {
-          return NextResponse.json({
-            success: true,
-            data: hotelIdResult,
-            locationData: multicompleteResult.data,
-            message: "Hotels found successfully",
-          });
-        }
-      }
+    // Strategy 4: Hotel IDs from multicomplete
+    if (hotelsFound === 0 && mcResult?.data?.hotels?.length > 0) {
+      const hotelIds = mcResult.data.hotels.map((h) => h.id.toString());
+      hotelResult = await searchHotels(hotelIds);
+      hotelsFound = hotelResult?.data?.hotels?.length ?? 0;
     }
 
-    // Return the main result (even if empty, for debugging)
+    console.log(
+      `Step 2 complete — total_hotels: ${
+        hotelResult?.data?.total_hotels ?? 0
+      }, returned: ${hotelsFound}`
+    );
+
+    // ── Log SERP book_hashes ──────────────────────────────────────────────────
+    console.log("\n========== BOOK HASHES (Step 2 - SERP) ==========");
+    hotelResult?.data?.hotels?.[0]?.rates?.forEach((rate, i) => {
+      console.log(
+        `Rate [${i}] book_hash: ${
+          rate.book_hash ?? "NOT FOUND"
+        } | match_hash: ${rate.match_hash ?? "NOT FOUND"}`
+      );
+    });
+    console.log("==================================================\n");
+
+    if (hotelsFound === 0) {
+      return NextResponse.json({
+        success: true,
+        data: { total_hotels: 0, hotels: [] },
+        locationData: mcResult.data,
+        message: "No hotels available for the selected dates and location",
+      });
+    }
+
+    // Return hotel data directly from SERP without additional processing
     return NextResponse.json({
       success: true,
-      data: hotelResult,
-      locationData: multicompleteResult.data,
-      message: hotelsFound > 0 ? "Hotels found successfully" : "No hotels available for the selected dates and location",
+      data: hotelResult.data,
+      locationData: mcResult.data,
+      message: "Hotels found successfully",
     });
   } catch (error) {
     console.error("Hotel search error:", error.message);
-
     return NextResponse.json(
       {
         success: false,

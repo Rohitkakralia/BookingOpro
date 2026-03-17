@@ -265,5 +265,4 @@ class BookingAPIService {
   }
 }
 
-const apiService = new BookingAPIService();
-export default apiService;
+export default new BookingAPIService();
